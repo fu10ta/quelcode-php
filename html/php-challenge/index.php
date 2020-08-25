@@ -66,6 +66,39 @@ function h($value) {
 function makeLink($value) {
 	return mb_ereg_replace("(https?)(://[[:alnum:]\+\$\;\?\.%,!#~*/:@&=_-]+)", '<a href="\1\2">\1\2</a>' , $value);
 }
+
+//Retweet
+if(isset($_REQUEST['retweet'])){
+	//RT対象投稿の取得
+	$getRetweets = $db->prepare('SELECT id, message, member_id, retweet_post_id, retweet_member_id FROM posts WHERE id=?');
+	$getRetweets->execute(array($_REQUEST['retweet']));
+	$getRetweet = $getRetweets->fetch();
+		//RT対象投稿がRTか否か判別し元ポストのidを変数に用意
+		if($getRetweet['retweet_post_id'] === 0){
+			$retweetPost = $getRetweet['id'];
+			$retweetMember = $getRetweet['member_id'];
+		}else{
+			$retweetPost = $getRetweet['retweet_post_id'];
+			$retweetMember = $getRetweet['retweet_member_id'];
+		}
+	
+	//RT済か否か判別
+	$checkRetweets = $db->prepare('SELECT COUNT(*) AS count FROM posts WHERE member_id=? AND retweet_post_id=?');
+	$checkRetweets->execute(array($member['id'], $retweetPost));
+	$checkRetweet = $checkRetweets->fetch();
+	
+	if($checkRetweet['count'] === 0){
+		//未RT
+		$retweet = $db->prepare('INSERT INTO posts SET message=?, member_id=?, reply_post_id=0, retweet_post_id=?, retweet_member_id=?, created=NOW()');
+		$retweet->execute(array($getRetweet['message'], $member['id'], $retweetPost, $retweetMember));
+	}else{
+		//RT済
+		$retweet = $db->prepare('DELETE FROM posts WHERE member_id=? AND retweet_post_id=?');
+		$retweet->execute(array($member['id'], $retweetPost));
+	}
+	header('Location:index.php');exit();
+}
+
 ?>
 <!DOCTYPE html>
 <html lang="ja">
@@ -124,6 +157,37 @@ style="color: #F33;">削除</a>]
 <?php
 endif;
 ?>
+
+<?php
+//表示ツイートがRTか否か判別し元ポストのidを変数に代入
+if($post['retweet_post_id'] === 0){
+	$retweetPosts = $post['id'];
+}else{
+	$retweetPosts = $post['retweet_post_id'];
+}
+
+//表示ツイートのRT数の取得
+$retweetCounts = $db->prepare('SELECT COUNT(*) AS count FROM posts WHERE retweet_post_id=?');
+$retweetCounts->execute(array($retweetPosts));
+$retweetCount = $retweetCounts->fetch();
+
+//ログインユーザーが表示ツイートをRTしているか否か取得
+$allCheckRetweets = $db->prepare('SELECT COUNT(*) AS count FROM posts WHERE member_id=? AND retweet_post_id=?');
+$allCheckRetweets->execute(array($member['id'], $retweetPosts));
+$allCheckRetweet = $allCheckRetweets->fetch();
+?>
+
+
+[<a href="index.php?retweet=<?php echo h($post['id']);?>"
+<?php
+	//RT済の場合文字色変更
+	if($allCheckRetweet['count'] === 0){
+		echo 'style="color:green;"';
+	}
+?>>RT</a>]
+
+<!-- <a href="">&#9825;</a> -->
+
     </p>
     </div>
 <?php

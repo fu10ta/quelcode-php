@@ -14,6 +14,8 @@ CREATE TABLE `posts` (
       `message` text NOT NULL,
       `member_id` int(11) NOT NULL,
       `reply_post_id` int(11) NOT NULL,
+      `retweet_post_id` int(11) NOT NULL,
+      `retweet_member_id` int(11) NOT NULL,
       `created` datetime NOT NULL,
       `modified` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       PRIMARY KEY (`id`)
