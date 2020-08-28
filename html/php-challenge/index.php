@@ -74,7 +74,7 @@ if(isset($_REQUEST['retweet'])){
 	$getRetweets->execute(array($_REQUEST['retweet']));
 	$getRetweet = $getRetweets->fetch();
 		//RT対象投稿がRTか否か判別し元ポストのidを変数に用意
-		if($getRetweet['retweet_post_id'] === 0){
+		if($getRetweet['retweet_post_id'] === (string)0){
 			$retweetPost = $getRetweet['id'];
 			$retweetMember = $getRetweet['member_id'];
 		}else{
@@ -87,7 +87,7 @@ if(isset($_REQUEST['retweet'])){
 	$checkRetweets->execute(array($member['id'], $retweetPost));
 	$checkRetweet = $checkRetweets->fetch();
 	
-	if($checkRetweet['count'] === 0){
+	if($checkRetweet['count'] === (string)0){
 		//未RT
 		$retweet = $db->prepare('INSERT INTO posts SET message=?, member_id=?, reply_post_id=0, retweet_post_id=?, retweet_member_id=?, created=NOW()');
 		$retweet->execute(array($getRetweet['message'], $member['id'], $retweetPost, $retweetMember));
@@ -160,7 +160,7 @@ endif;
 
 <?php
 //表示ツイートがRTか否か判別し元ポストのidを変数に代入
-if($post['retweet_post_id'] === 0){
+if($post['retweet_post_id'] === (string)0){
 	$retweetPosts = $post['id'];
 }else{
 	$retweetPosts = $post['retweet_post_id'];
@@ -181,10 +181,16 @@ $allCheckRetweet = $allCheckRetweets->fetch();
 [<a href="index.php?retweet=<?php echo h($post['id']);?>"
 <?php
 	//RT済の場合文字色変更
-	if($allCheckRetweet['count'] === 0){
+	if($allCheckRetweet['count'] !== (string)0){
 		echo 'style="color:green;"';
 	}
 ?>>RT</a>]
+<?php
+	//RT数の表示
+	if($retweetCount['count'] > (string)0){
+		echo $retweetCount['count'];
+	}
+?>
 
 <!-- <a href="">&#9825;</a> -->
 
