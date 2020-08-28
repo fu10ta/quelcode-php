@@ -99,6 +99,36 @@ if(isset($_REQUEST['retweet'])){
 	header('Location:index.php');exit();
 }
 
+//Like
+if(isset($_REQUEST['like'])){
+	//Like対象投稿の取得
+	$getLikes = $db->prepare('SELECT id, retweet_post_id FROM posts WHERE id=?');
+	$getLikes->execute(array($_REQUEST['like']));
+	$getLike = $getLikes->fetch();
+		//Like対象投稿がRTか否か判別し元ポストのidを変数に用意
+		if($getLike['retweet_post_id'] === (string)0){
+			$likePost = $getLike['id'];
+		}else{
+			$likePost = $getLike['retweet_post_id'];
+		}
+
+	//LIKE済か否か判別
+	$checkLikes = $db->prepare('SELECT COUNT(*) AS count FROM likes WHERE post_id=? AND liked_member_id=?');
+	$checkLikes->execute(array($likePost, $member['id']));
+	$checkLike = $checkLikes->fetch();
+	
+	if($checkLike['count'] === (string)0){
+		//未Like
+		$like = $db->prepare('INSERT INTO likes SET post_id=?, liked_member_id=?, created=NOW()');
+		$like->execute(array($likePost, $member['id']));
+	}else{
+		//Like済
+		$like = $db->prepare('DELETE FROM likes WHERE post_id=? AND liked_member_id=?');
+		$like->execute(array($likePost, $member['id']));
+	}
+	header('Location:index.php');exit();
+}
+
 ?>
 <!DOCTYPE html>
 <html lang="ja">
@@ -191,9 +221,34 @@ $allCheckRetweet = $allCheckRetweets->fetch();
 		echo $retweetCount['count'];
 	}
 ?>
+<?php
+//表示ツイートのLike数の取得
+$likeCounts = $db->prepare('SELECT COUNT(*) AS count FROM likes WHERE post_id=?');
+$likeCounts->execute(array($post['id']));
+$likeCount = $likeCounts->fetch();
 
-<!-- <a href="">&#9825;</a> -->
+//ログインユーザーが表示ツイートをLikeしているか否か取得
+$allCheckLikes = $db->prepare('SELECT COUNT(*) AS count FROM likes WHERE post_id=? AND liked_member_id=?');
+$allCheckLikes->execute(array($post['id'],$member['id']));
+$allChecklike = $allCheckLikes->fetch();
+?>
 
+<?php
+if($allChecklike['count'] === (string) 0){
+?>
+	<a href="index.php?like=<?=$post['id']?>"><span>&#9825;</span></a>
+<?php
+}else{
+?>
+	<a href="index.php?like=<?=$post['id']?>" style="color:#F33;"><span>&#9829;</span></a>
+<?php
+}
+?>
+<?php
+if($likeCount['count'] > (string) 0 ){
+	echo $likeCount['count'];
+}
+?>
     </p>
     </div>
 <?php
