@@ -2,6 +2,7 @@
 define('IS_NOT_RETWEET',0);
 define('IS_NOT_EXIST_RETWEET',0);
 define('IS_NOT_EXIST_LIKE',0);
+define('IS_NOT_ESIST_REPLY',0);
 
 session_start();
 require('dbconnect.php');
@@ -203,7 +204,7 @@ foreach ($posts as $post):
     <p><?php echo makeLink(h($timeline['message'])); ?><span class="name">（<?php echo h($timeline['name']); ?>）</span>[<a href="index.php?res=<?php echo h($timeline['id']); ?>">Re</a>]</p>
     <p class="day"><a href="view.php?id=<?php echo h($timeline['id']); ?>"><?php echo h($timeline['created']); ?></a>
 		<?php
-if ($post['reply_post_id'] > 0):
+if ($post['reply_post_id'] !== IS_NOT_ESIST_REPLY):
 ?>
 <a href="view.php?id=<?php echo
 h($post['reply_post_id']); ?>">
@@ -248,7 +249,7 @@ if($allCheckRetweet['count'] !== IS_NOT_EXIST_RETWEET){
 ?>>RT</a>]
 <?php
 //RT数の表示
-if($retweetCount['count'] > IS_NOT_EXIST_LIKE){
+if($retweetCount['count'] !== IS_NOT_EXIST_LIKE){
 	echo $retweetCount['count'];
 }
 
@@ -273,7 +274,7 @@ if($allChecklike['count'] === IS_NOT_EXIST_LIKE){
 }
 ?>
 <?php
-if($likeCount['count'] > (string) 0 ){
+if($likeCount['count'] !== IS_NOT_EXIST_LIKE){
 	echo $likeCount['count'];
 }
 //RTしたユーザーを表示
