@@ -68,23 +68,27 @@ function makeLink($value) {
 }
 
 //RETWEET
+define('IS_NOT_RETWEET',0);
+define('IS_NOT_EXIST_RETWEET',0);
+define('IS_NOT_EXIST_LIKE',0);
+
 if(isset($_REQUEST['retweet'])){
 	$getSelectedPosts = $db->prepare('SELECT id, retweet_post_id FROM posts WHERE id=?');
 	$getSelectedPosts->execute(array($_REQUEST['retweet']));
 	$getSelectedPost = $getSelectedPosts->fetch();
 	//Get PostID to Retweet
-	if($getSelectedPost['retweet_post_id'] === (string)0){
+	if($getSelectedPost['retweet_post_id'] === IS_NOT_RETWEET){
 		$retweetPostId = $getSelectedPost['id'];
 	}else{
 		$retweetPostId = $getSelectedPost['retweet_post_id'];
 	}
 
-	//CHeck Retweeted or not
+	//Check Retweeted or not
 	$checkRetweeted = $db->prepare('SELECT COUNT(*) AS count FROM posts WHERE retweet_member_id=? AND retweet_post_id=?');
 	$checkRetweeted->execute(array($member['id'], $retweetPostId));
 	$checkRetweet = $checkRetweeted->fetch();
 
-	if($checkRetweet['count'] === (string)0){
+	if($checkRetweet['count'] === IS_NOT_EXIST_RETWEET){
 		$retweet = $db->prepare('INSERT INTO posts SET retweet_post_id=?, retweet_member_id=?, created=NOW()');
 	}else{
 		//already retweet
@@ -101,7 +105,7 @@ if(isset($_REQUEST['like'])){
 	$getLikes->execute(array($_REQUEST['like']));
 	$getLike = $getLikes->fetch();
 		//Like対象投稿がRTか否か判別し元ポストのidを変数に用意
-		if($getLike['retweet_post_id'] === (string)0){
+		if($getLike['retweet_post_id'] === IS_NOT_RETWEET){
 			$likePost = $getLike['id'];
 		}else{
 			$likePost = $getLike['retweet_post_id'];
@@ -112,7 +116,7 @@ if(isset($_REQUEST['like'])){
 	$checkLikes->execute(array($likePost, $member['id']));
 	$checkLike = $checkLikes->fetch();
 	
-	if($checkLike['count'] === (string)0){
+	if($checkLike['count'] === IS_NOT_EXIST_LIKE){
 		//未Like
 		$like = $db->prepare('INSERT INTO likes SET post_id=?, liked_member_id=?');
 	}else{
@@ -161,7 +165,7 @@ if(isset($_REQUEST['like'])){
 <?php
 foreach ($posts as $post):
 	//Get Post INFO
-	if($post['retweet_post_id'] === (string)0){
+	if($post['retweet_post_id'] === IS_NOT_RETWEET){
 		$timeline = array(
 			"picture" => $post['picture'],
 			"name" => $post['name'],
@@ -206,7 +210,7 @@ h($post['reply_post_id']); ?>">
 <?php
 endif;
 
-if($post['retweet_member_id'] === (string)0){
+if($post['retweet_member_id'] === IS_NOT_RETWEET){
 	$tweetMemberId = $post['member_id'];
 	$tweetPostId = $post['id'];
 }else{
@@ -237,7 +241,7 @@ $allCheckRetweet = $allCheckRetweets->fetch();
 [<a href="index.php?retweet=<?php echo h($post['id']);?>"
 <?php
 //RT済の場合文字色変更
-if($allCheckRetweet['count'] !== (string)0){
+if($allCheckRetweet['count'] !== IS_NOT_EXIST_RETWEET){
 	echo 'style="color:green;"';
 }
 ?>>RT</a>]
@@ -247,14 +251,6 @@ if($retweetCount['count'] > (string)0){
 	echo $retweetCount['count'];
 }
 
-//RTしたユーザーを表示
-if($post['retweet_member_id'] !== (string)0){
-	$retweetMemberNames= $db->prepare('SELECT name from members WHERE id=?');
-	$retweetMemberNames->execute(array($post['retweet_member_id']));
-	$retweetMemberName= $retweetMemberNames->fetch();
-
-	echo "<br>".$retweetMemberName['name']."がRTしました";
-}
 
 //表示ツイートのLike数の取得
 $likeCounts = $db->prepare('SELECT COUNT(*) AS count FROM likes WHERE post_id=?');
@@ -266,12 +262,12 @@ $allCheckLikes = $db->prepare('SELECT COUNT(*) AS count FROM likes WHERE post_id
 $allCheckLikes->execute(array($tweetPostId,$member['id']));
 $allChecklike = $allCheckLikes->fetch();
 
-if($allChecklike['count'] === (string) 0){
-?>
+if($allChecklike['count'] === IS_NOT_EXIST_LIKE){
+	?>
 	<a href="index.php?like=<?=$post['id']?>"><span>&#9825;</span></a>
 <?php
 }else{
-?>
+	?>
 	<a href="index.php?like=<?=$post['id']?>" style="color:#F33;"><span>&#9829;</span></a>
 <?php
 }
@@ -279,6 +275,14 @@ if($allChecklike['count'] === (string) 0){
 <?php
 if($likeCount['count'] > (string) 0 ){
 	echo $likeCount['count'];
+}
+//RTしたユーザーを表示
+if($post['retweet_member_id'] !== IS_NOT_RETWEET){
+	$retweetMemberNames= $db->prepare('SELECT name from members WHERE id=?');
+	$retweetMemberNames->execute(array($post['retweet_member_id']));
+	$retweetMemberName= $retweetMemberNames->fetch();
+
+	echo "<br>".$retweetMemberName['name']."がRTしました";
 }
 ?>
     </p>
@@ -290,18 +294,18 @@ endforeach;
 <ul class="paging">
 <?php
 if ($page > 1) {
-?>
+	?>
 <li><a href="index.php?page=<?php print($page - 1); ?>">前のページへ</a></li>
 <?php
 } else {
-?>
+	?>
 <li>前のページへ</li>
 <?php
 }
 ?>
 <?php
 if ($page < $maxPage) {
-?>
+	?>
 <li><a href="index.php?page=<?php print($page + 1); ?>">次のページへ</a></li>
 <?php
 } else {
