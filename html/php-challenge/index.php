@@ -1,4 +1,8 @@
 <?php
+define('IS_NOT_RETWEET',0);
+define('IS_NOT_EXIST_RETWEET',0);
+define('IS_NOT_EXIST_LIKE',0);
+
 session_start();
 require('dbconnect.php');
 
@@ -68,9 +72,6 @@ function makeLink($value) {
 }
 
 //RETWEET
-define('IS_NOT_RETWEET',0);
-define('IS_NOT_EXIST_RETWEET',0);
-define('IS_NOT_EXIST_LIKE',0);
 
 if(isset($_REQUEST['retweet'])){
 	$getSelectedPosts = $db->prepare('SELECT id, retweet_post_id FROM posts WHERE id=?');
@@ -247,10 +248,9 @@ if($allCheckRetweet['count'] !== IS_NOT_EXIST_RETWEET){
 ?>>RT</a>]
 <?php
 //RT数の表示
-if($retweetCount['count'] > (string)0){
+if($retweetCount['count'] > IS_NOT_EXIST_LIKE){
 	echo $retweetCount['count'];
 }
-
 
 //表示ツイートのLike数の取得
 $likeCounts = $db->prepare('SELECT COUNT(*) AS count FROM likes WHERE post_id=?');
