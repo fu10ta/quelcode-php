@@ -1,8 +1,8 @@
 <?php
-define('IS_NOT_RETWEET',0);
-define('IS_NOT_EXIST_RETWEET',0);
-define('IS_NOT_EXIST_LIKE',0);
-define('IS_NOT_ESIST_REPLY',0);
+define('IS_NOT_RETWEET', 0);
+define('IS_NOT_EXIST_RETWEET', 0);
+define('IS_NOT_EXIST_LIKE', 0);
+define('IS_NOT_ESIST_REPLY', 0);
 
 session_start();
 require('dbconnect.php');
@@ -249,7 +249,7 @@ if($allCheckRetweet['count'] !== IS_NOT_EXIST_RETWEET){
 ?>>RT</a>]
 <?php
 //RT数の表示
-if($retweetCount['count'] !== IS_NOT_EXIST_LIKE){
+if($retweetCount['count'] !== IS_NOT_EXIST_RETWEET){
 	echo $retweetCount['count'];
 }
 
