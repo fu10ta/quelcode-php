@@ -1,4 +1,9 @@
 <?php
+define('IS_NOT_RETWEET', 0);
+define('IS_NOT_EXIST_RETWEET', 0);
+define('IS_NOT_EXIST_LIKE', 0);
+define('IS_NOT_ESIST_REPLY', 0);
+
 session_start();
 require('dbconnect.php');
 
@@ -44,7 +49,7 @@ $page = min($page, $maxPage);
 $start = ($page - 1) * 5;
 $start = max(0, $start);
 
-$posts = $db->prepare('SELECT m.name, m.picture, p.* FROM members m, posts p WHERE m.id=p.member_id ORDER BY p.created DESC LIMIT ?, 5');
+$posts = $db->prepare('SELECT m.name, m.picture, p.* FROM members m, posts p WHERE m.id=p.member_id OR m.id=p.retweet_member_id ORDER BY p.created DESC LIMIT ?, 5');
 $posts->bindParam(1, $start, PDO::PARAM_INT);
 $posts->execute();
 
@@ -66,6 +71,65 @@ function h($value) {
 function makeLink($value) {
 	return mb_ereg_replace("(https?)(://[[:alnum:]\+\$\;\?\.%,!#~*/:@&=_-]+)", '<a href="\1\2">\1\2</a>' , $value);
 }
+
+//RETWEET
+
+if(isset($_REQUEST['retweet'])){
+	$getSelectedPosts = $db->prepare('SELECT id, retweet_post_id FROM posts WHERE id=?');
+	$getSelectedPosts->execute(array($_REQUEST['retweet']));
+	$getSelectedPost = $getSelectedPosts->fetch();
+	//Get PostID to Retweet
+	if($getSelectedPost['retweet_post_id'] === IS_NOT_RETWEET){
+		$retweetPostId = $getSelectedPost['id'];
+	}else{
+		$retweetPostId = $getSelectedPost['retweet_post_id'];
+	}
+
+	//Check Retweeted or not
+	$checkRetweeted = $db->prepare('SELECT COUNT(*) AS count FROM posts WHERE retweet_member_id=? AND retweet_post_id=?');
+	$checkRetweeted->execute(array($member['id'], $retweetPostId));
+	$checkRetweet = $checkRetweeted->fetch();
+
+	if($checkRetweet['count'] === IS_NOT_EXIST_RETWEET){
+		$retweet = $db->prepare('INSERT INTO posts SET retweet_post_id=?, retweet_member_id=?, created=NOW()');
+	}else{
+		//already retweet
+		$retweet = $db->prepare('DELETE FROM posts WHERE retweet_post_id=? AND retweet_member_id=?');
+	}
+		$retweet->execute(array($retweetPostId, $member['id']));
+	header('Location:index.php');exit();
+}
+
+//Like
+if(isset($_REQUEST['like'])){
+	//Like対象投稿の取得
+	$getLikes = $db->prepare('SELECT id, retweet_post_id FROM posts WHERE id=?');
+	$getLikes->execute(array($_REQUEST['like']));
+	$getLike = $getLikes->fetch();
+		//Like対象投稿がRTか否か判別し元ポストのidを変数に用意
+		if($getLike['retweet_post_id'] === IS_NOT_RETWEET){
+			$likePost = $getLike['id'];
+		}else{
+			$likePost = $getLike['retweet_post_id'];
+		}
+
+	//LIKE済か否か判別
+	$checkLikes = $db->prepare('SELECT COUNT(*) AS count FROM likes WHERE post_id=? AND liked_member_id=?');
+	$checkLikes->execute(array($likePost, $member['id']));
+	$checkLike = $checkLikes->fetch();
+	
+	if($checkLike['count'] === IS_NOT_EXIST_LIKE){
+		//未Like
+		$like = $db->prepare('INSERT INTO likes SET post_id=?, liked_member_id=?');
+	}else{
+		//Like済
+		$like = $db->prepare('DELETE FROM likes WHERE post_id=? AND liked_member_id=?');
+	}
+	$like->execute(array($likePost, $member['id']));
+
+	header('Location:index.php');exit();
+}
+
 ?>
 <!DOCTYPE html>
 <html lang="ja">
@@ -102,27 +166,125 @@ function makeLink($value) {
 
 <?php
 foreach ($posts as $post):
+	//Get Post INFO
+	if($post['retweet_post_id'] === IS_NOT_RETWEET){
+		$timeline = array(
+			"picture" => $post['picture'],
+			"name" => $post['name'],
+			"message" => $post['message'],
+			"member_id" => $post['member_id'],
+			"reply_post_id" => $post['reply_post_id'],
+			"retweet_post_id" => $post['retweet_post_id'],
+			"retweet_member_id" => $post['retweet_member_id'],
+			"created" => $post['created'],
+			"modified" => $post['modified']
+		);
+	}else{
+		//GET ex-Posts data
+		$exPosts = $db->prepare('SELECT m.name, m.picture, p.id, p.message, p.member_id, p.reply_post_id, p.retweet_post_id, p.retweet_member_id, p.created, p.modified FROM members m, posts p  WHERE p.id=? AND m.id=p.member_id');
+		$exPosts->execute(array($post['retweet_post_id']));
+		$exPost = $exPosts->fetch();
+
+		$timeline = array(
+			"picture" => $exPost['picture'],
+			"name" => $exPost['name'],
+			"message" => $exPost['message'],
+			"member_id" => $exPost['member_id'],
+			"reply_post_id" => $exPost['reply_post_id'],
+			"retweet_post_id" => $exPost['retweet_post_id'],
+			"retweet_member_id" => $exPost['retweet_member_id'],
+			"created" => $exPost['created'],
+			"modified" => $exPost['modified']
+		);
+	}
 ?>
+
     <div class="msg">
-    <img src="member_picture/<?php echo h($post['picture']); ?>" width="48" height="48" alt="<?php echo h($post['name']); ?>" />
-    <p><?php echo makeLink(h($post['message'])); ?><span class="name">（<?php echo h($post['name']); ?>）</span>[<a href="index.php?res=<?php echo h($post['id']); ?>">Re</a>]</p>
-    <p class="day"><a href="view.php?id=<?php echo h($post['id']); ?>"><?php echo h($post['created']); ?></a>
+    <img src="member_picture/<?php echo h($timeline['picture']); ?>" width="48" height="48" alt="<?php echo h($timeline['name']); ?>" />
+    <p><?php echo makeLink(h($timeline['message'])); ?><span class="name">（<?php echo h($timeline['name']); ?>）</span>[<a href="index.php?res=<?php echo h($timeline['id']); ?>">Re</a>]</p>
+    <p class="day"><a href="view.php?id=<?php echo h($timeline['id']); ?>"><?php echo h($timeline['created']); ?></a>
 		<?php
-if ($post['reply_post_id'] > 0):
+if ($post['reply_post_id'] !== IS_NOT_ESIST_REPLY):
 ?>
 <a href="view.php?id=<?php echo
 h($post['reply_post_id']); ?>">
 返信元のメッセージ</a>
 <?php
 endif;
-?>
-<?php
-if ($_SESSION['id'] == $post['member_id']):
+
+if($post['retweet_member_id'] === IS_NOT_RETWEET){
+	$tweetMemberId = $post['member_id'];
+	$tweetPostId = $post['id'];
+}else{
+	$tweetMemberId = $post['retweet_member_id'];
+	$tweetPostId = $post['retweet_post_id'];
+}
+
+if ($_SESSION['id'] === $tweetMemberId):
 ?>
 [<a href="delete.php?id=<?php echo h($post['id']); ?>"
 style="color: #F33;">削除</a>]
 <?php
 endif;
+?>
+
+<?php
+//表示ツイートのRT数の取得
+$retweetCounts = $db->prepare('SELECT COUNT(*) AS count FROM posts WHERE retweet_post_id=?');
+$retweetCounts->execute(array($tweetPostId));
+$retweetCount = $retweetCounts->fetch();
+
+//ログインユーザーが表示ツイートをRTしているか否か取得
+$allCheckRetweets = $db->prepare('SELECT COUNT(*) AS count FROM posts WHERE retweet_member_id=? AND retweet_post_id=?');
+$allCheckRetweets->execute(array($member['id'], $tweetPostId));
+$allCheckRetweet = $allCheckRetweets->fetch();
+?>
+
+[<a href="index.php?retweet=<?php echo h($post['id']);?>"
+<?php
+//RT済の場合文字色変更
+if($allCheckRetweet['count'] !== IS_NOT_EXIST_RETWEET){
+	echo 'style="color:green;"';
+}
+?>>RT</a>]
+<?php
+//RT数の表示
+if($retweetCount['count'] !== IS_NOT_EXIST_RETWEET){
+	echo $retweetCount['count'];
+}
+
+//表示ツイートのLike数の取得
+$likeCounts = $db->prepare('SELECT COUNT(*) AS count FROM likes WHERE post_id=?');
+$likeCounts->execute(array($tweetPostId));
+$likeCount = $likeCounts->fetch();
+
+//ログインユーザーが表示ツイートをLikeしているか否か取得
+$allCheckLikes = $db->prepare('SELECT COUNT(*) AS count FROM likes WHERE post_id=? AND liked_member_id=?');
+$allCheckLikes->execute(array($tweetPostId,$member['id']));
+$allChecklike = $allCheckLikes->fetch();
+
+if($allChecklike['count'] === IS_NOT_EXIST_LIKE){
+	?>
+	<a href="index.php?like=<?=$post['id']?>"><span>&#9825;</span></a>
+<?php
+}else{
+	?>
+	<a href="index.php?like=<?=$post['id']?>" style="color:#F33;"><span>&#9829;</span></a>
+<?php
+}
+?>
+<?php
+if($likeCount['count'] !== IS_NOT_EXIST_LIKE){
+	echo $likeCount['count'];
+}
+//RTしたユーザーを表示
+if($post['retweet_member_id'] !== IS_NOT_RETWEET){
+	$retweetMemberNames= $db->prepare('SELECT name from members WHERE id=?');
+	$retweetMemberNames->execute(array($post['retweet_member_id']));
+	$retweetMemberName= $retweetMemberNames->fetch();
+
+	echo "<br>".$retweetMemberName['name']."がRTしました";
+}
 ?>
     </p>
     </div>
@@ -133,18 +295,18 @@ endforeach;
 <ul class="paging">
 <?php
 if ($page > 1) {
-?>
+	?>
 <li><a href="index.php?page=<?php print($page - 1); ?>">前のページへ</a></li>
 <?php
 } else {
-?>
+	?>
 <li>前のページへ</li>
 <?php
 }
 ?>
 <?php
 if ($page < $maxPage) {
-?>
+	?>
 <li><a href="index.php?page=<?php print($page + 1); ?>">次のページへ</a></li>
 <?php
 } else {
